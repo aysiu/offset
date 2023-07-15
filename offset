@@ -58,7 +58,7 @@ def mount_dmg(dmg):
     '''Attaches dmg'''
     dmg_path = os.path.join(dmg)
     cmd = ['hdiutil', 'attach', '-nobrowse', '-noverify', '-noautoopen', dmg_path]
-    logging.info('Attaching %s', dmg_path)
+    logging.info(f'Attaching {dmg_path}')
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
@@ -66,13 +66,13 @@ def mount_dmg(dmg):
 
 def detach_dmg(dmg_mount):
     '''Detaches dmg'''
-    logging.info('Detaching %s', dmg_mount)
+    logging.info(f'Detaching {dmg_mount}')
     cmd = ['hdiutil', 'detach', '-force', dmg_mount]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
     if err:
-        logging.error('Unable to detach %s: %s', dmg_mount, err)
+        logging.error(f'Unable to detach {dmg_mount}: {err}')
 
 def check_perms(pathname):
     mode = os.stat(pathname).st_mode
@@ -95,13 +95,13 @@ def install_package(pkg):
     elif pkg.lower().endswith(('pkg', 'mpkg')):
         dmg_mount = False
         pkg_to_install = pkg
-    logging.info('Installing %s', pkg_to_install)
+    logging.info(f'Installing {pkg_to_install}')
     cmd = ['/usr/sbin/installer', '-pkg', pkg_to_install, '-target', '/',]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
     if err:
-        logging.info('Failure installing %s: %s', pkg_to_install, err)
+        logging.info(f'Failure installing {pkg_to_install}: {err}')
     if dmg_mount:
         time.sleep(5)
         detach_dmg(dmg_mount)
@@ -111,13 +111,13 @@ def install_profile(pathname):
     cmd = ['/usr/bin/profiles', '-IF', pathname]
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logging.info('Installing profile %s', pathname)
+        logging.info(f'Installing profile {pathname}')
         (out, err) = proc.communicate()
         if err:
-            logging.error('Failure processing %s: %s', pathname, err)
+            logging.error(f'Failure processing {pathname}: {err}')
             return False
     except OSError as err:
-        logging.error('Failure processing %s: %s', pathname, err)
+        logging.error(f'Failure processing {pathname}: {err}')
         return False
     return True
 
@@ -125,15 +125,15 @@ def run_script(pathname):
     '''Runs script located at given pathname'''
     try:
         proc = subprocess.Popen(pathname, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logging.info('Processing %s', pathname)
+        logging.info(f'Processing {pathname}')
         (out, err) = proc.communicate()
         if err and proc.returncode == 0:
-            logging.info('Output from %s on stderr but it still ran successfully: %s', pathname, err)
+            logging.info(f'Output from {pathname} on stderr but it still ran successfully: {err}')
         elif proc.returncode > 0:
-            logging.error('Failure processing %s: %s', pathname, err)
+            logging.error(f'Failure processing {pathname}: {err}')
             return False
     except OSError as err:
-        logging.error('Failure processing %s: %s', pathname, err)
+        logging.error(f'Failure processing {pathname}: {err}')
         return False
     return True
 
@@ -141,7 +141,7 @@ def process_items(path, delete_items=False, once=False):
     '''Processes scripts/packages to run'''
 
     if not os.path.exists(path):
-        logging.error('%s does not exist. Exiting', path)
+        logging.error(f'{path} does not exist. Exiting')
         exit(1)
 
     packages = []
@@ -158,7 +158,7 @@ def process_items(path, delete_items=False, once=False):
             else:
                 scripts.append(pathname)
         else:
-            logging.error('Bad permissions: %s', pathname)
+            logging.error(f'Bad permissions: {pathname}')
 
     for package in packages:
         install_package(package)
@@ -240,9 +240,9 @@ def main():
                     if os.listdir(logout_every_dir):
                         process_items(logout_every_dir)
                     else:
-                        logging.info('Skipping logout scripts, because user %s is on the ignored user list', console_user)
+                        logging.info(f'Skipping logout scripts, because user {console_user} is on the ignored user list')
             else:
-                logging.info('Skipping logout scripts, because login state is %s and should be loggedOut or Restart', lastuser)
+                logging.info(f'Skipping logout scripts, because login state is {lastuser} and should be loggedOut or Restart')
         else:
             logging.info('Skipping logout scripts, because this is a reboot after a logout')
 
