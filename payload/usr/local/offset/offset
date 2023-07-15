@@ -189,12 +189,10 @@ def main():
 
     if args.logout:
         # Determine whether this is a logout or a straight reboot (as opposed to a reboot after a logout)
-        getlasthead = 'last | head -n3'
-        p = subprocess.Popen(getlasthead, shell=True, bufsize=0, stdout=subprocess.PIPE)
+        p = subprocess.Popen('last', bufsize=0, stdout=subprocess.PIPE, encoding="utf8")
         p.wait()
-        lasthead=p.stdout.read()
+        lastheadlist=p.stdout.read()
         p.stdout.close()
-        lastheadlist = [x.split() for x in lasthead.split("\n")]
 
         ### We don't know if the line below reboot is going to be shutdown or a user, so we'll have to test both
         # If the second line is shutdown and the third line is not shutdown or reboot and the second line's start time is the same as the third line's end time... or if the second line is not shutdown or reboot and its end time is the same as the start time... 
