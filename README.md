@@ -1,6 +1,11 @@
 # Offset
 Automatically process packages and scripts at logout (for 10.12 and earlier) or login window (for 10.13 and 10.14).
 
+## Update 2023
+I no longer actively maintain, use, or support this project, but I've just updated it for Python 3 in case that might be helpful to someone. I was hoping to use [the MacAdmins Python for this](https://github.com/macadmins/python/releases), but I found it was giving errors when importing the plistlib module. So I've just put in the [Munki](https://github.com/munki/munki) Python instead, which seems to work better. Feel free to use whatever version of Python 3 you want that actually works.
+
+I've done very minimal testing of this on Ventura (macOS 13). Your mileage may vary in Ventura itself or in Sonoma and beyond.
+
 ## Backstory
 Heavily based on Joseph Chilcote's [Outset](https://github.com/chilcote/outset), which processes packages and scripts at boot and login. He believed the running of logout scripts was outside the scope of his project and also had reservations about the implementation, so he suggested I could make it and call it _offset_, which is actually a great name, when you start looking at all the dictionary definitions of the word (a counterbalance, an offshoot, an actual outset still).
 
@@ -34,11 +39,8 @@ In High Sierra, the change from loggedIn to loggedOut in the com.apple.loginwind
 ### .pkg Method
 Go to the [the releases page](https://github.com/aysiu/offset/releases), where you'll be able to download a .pkg file and just run it. 
 
-### Manual Method
-Download the .zip and put the following files/folders in the following places
-* /usr/local/offset/**offset**
-* /usr/local/offset/**FoundationPlist**
-* /Library/LaunchAgents/**com.github.offset.logout.plist**
+### Create package yourself
+Use [munkipkg](https://github.com/munki/munki-pkg) to build (and maybe sign?) the package yourself.
 
 ## How to use Offset
 Put any scripts or packages in the **/usr/local/offset/logout-every** folder and make sure they have root:wheel ownership. The scripts should have 755 permissions. Packages should have 644 permissions.

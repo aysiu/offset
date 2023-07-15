@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/local/munki/munki-python
 
 '''
-Run scripts and install pkgs or profiles at logout.
+Run scripts and install pkgs at logout.
 '''
 
 ##############################################################################
@@ -21,19 +21,16 @@ Run scripts and install pkgs or profiles at logout.
 ##############################################################################
 
 __author__ = 'aysiu after Joseph Chilcote'
-__version__ = '1.4.2'
+__version__ = '2.0.0'
 
 import argparse
-import datetime
-import FoundationPlist
 import logging
 import os
 import platform
-import shutil
+import plistlib
 import subprocess
 import time
 from stat import S_IXOTH, S_IWOTH
-from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 
 offset_dir = '/usr/local/offset'
@@ -58,7 +55,7 @@ def mount_dmg(dmg):
     '''Attaches dmg'''
     dmg_path = os.path.join(dmg)
     cmd = ['hdiutil', 'attach', '-nobrowse', '-noverify', '-noautoopen', dmg_path]
-    logging.info('Attaching %s', dmg_path)
+    logging.info(f'Attaching {dmg_path}')
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
@@ -66,13 +63,13 @@ def mount_dmg(dmg):
 
 def detach_dmg(dmg_mount):
     '''Detaches dmg'''
-    logging.info('Detaching %s', dmg_mount)
+    logging.info(f'Detaching {dmg_mount}')
     cmd = ['hdiutil', 'detach', '-force', dmg_mount]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
     if err:
-        logging.error('Unable to detach %s: %s', dmg_mount, err)
+        logging.error(f'Unable to detach {dmg_mount}: {err}')
 
 def check_perms(pathname):
     mode = os.stat(pathname).st_mode
@@ -95,45 +92,30 @@ def install_package(pkg):
     elif pkg.lower().endswith(('pkg', 'mpkg')):
         dmg_mount = False
         pkg_to_install = pkg
-    logging.info('Installing %s', pkg_to_install)
+    logging.info(f'Installing {pkg_to_install}')
     cmd = ['/usr/sbin/installer', '-pkg', pkg_to_install, '-target', '/',]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
     if err:
-        logging.info('Failure installing %s: %s', pkg_to_install, err)
+        logging.info(f'Failure installing {pkg_to_install}: {err}')
     if dmg_mount:
         time.sleep(5)
         detach_dmg(dmg_mount)
-
-def install_profile(pathname):
-    '''Install mobileconfig located at given pathname'''
-    cmd = ['/usr/bin/profiles', '-IF', pathname]
-    try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logging.info('Installing profile %s', pathname)
-        (out, err) = proc.communicate()
-        if err:
-            logging.error('Failure processing %s: %s', pathname, err)
-            return False
-    except OSError as err:
-        logging.error('Failure processing %s: %s', pathname, err)
-        return False
-    return True
 
 def run_script(pathname):
     '''Runs script located at given pathname'''
     try:
         proc = subprocess.Popen(pathname, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logging.info('Processing %s', pathname)
+        logging.info(f'Processing {pathname}')
         (out, err) = proc.communicate()
         if err and proc.returncode == 0:
-            logging.info('Output from %s on stderr but it still ran successfully: %s', pathname, err)
+            logging.info(f'Output from {pathname} on stderr but it still ran successfully: {err}')
         elif proc.returncode > 0:
-            logging.error('Failure processing %s: %s', pathname, err)
+            logging.error(f'Failure processing {pathname}: {err}')
             return False
     except OSError as err:
-        logging.error('Failure processing %s: %s', pathname, err)
+        logging.error(f'Failure processing {pathname}: {err}')
         return False
     return True
 
@@ -141,7 +123,7 @@ def process_items(path, delete_items=False, once=False):
     '''Processes scripts/packages to run'''
 
     if not os.path.exists(path):
-        logging.error('%s does not exist. Exiting', path)
+        logging.error(f'{path} does not exist. Exiting')
         exit(1)
 
     packages = []
@@ -158,15 +140,11 @@ def process_items(path, delete_items=False, once=False):
             else:
                 scripts.append(pathname)
         else:
-            logging.error('Bad permissions: %s', pathname)
+            logging.error(f'Bad permissions: {pathname}')
 
     for package in packages:
         install_package(package)
         if delete_items: cleanup(package)
-
-    for profile in profiles:
-        task = install_profile(profile)
-        if delete_items: cleanup(profile)
 
     for script in scripts:
         task = run_script(script)
@@ -195,24 +173,42 @@ def main():
         os.makedirs(share_dir)
 
     if os.path.exists(offset_preferences):
-        prefs = FoundationPlist.readPlist(offset_preferences)
+        try:
+            prefs_file = open(offset_preferences, 'rb')
+        except:
+            logging.error(f"Can't open {offset_preferences}. Exiting")
+            exit(1)
+        try:
+            prefs = plistlib.load(prefs_file)
+        except:
+            logging.error(f"Unable to read contents of {offset_preferences}. Exiting")
+            exit(1)
+        prefs_file.close()
         if prefs.get('ignored_users'):
             ignored_users = prefs['ignored_users']
 
     if args.logout:
         # Determine whether this is a logout or a straight reboot (as opposed to a reboot after a logout)
-        getlasthead = 'last | head -n3'
-        p = subprocess.Popen(getlasthead, shell=True, bufsize=0, stdout=subprocess.PIPE)
+        p = subprocess.Popen('last', bufsize=0, stdout=subprocess.PIPE, encoding="utf8")
         p.wait()
-        lasthead=p.stdout.read()
+        lastheadlist=p.stdout.read()
         p.stdout.close()
-        lastheadlist = [x.split() for x in lasthead.split("\n")]
 
         ### We don't know if the line below reboot is going to be shutdown or a user, so we'll have to test both
         # If the second line is shutdown and the third line is not shutdown or reboot and the second line's start time is the same as the third line's end time... or if the second line is not shutdown or reboot and its end time is the same as the start time... 
         if((lastheadlist[0][0] != "reboot") or (lastheadlist[0][0] == "reboot" and lastheadlist[1][0] == "shutdown" and lastheadlist[2][0] != "reboot" and lastheadlist[2][0] != "shutdown" and lastheadlist[1][5] == lastheadlist[2][7]) or (lastheadlist[0][0] == "reboot" and lastheadlist[1][0] != "reboot" and lastheadlist[1][0] != "shutdown" and lastheadlist[0][5] == lastheadlist[1][7])):
             # Logout is really login window. Check both the  username and the last user state is 'loggedOut' or 'Restart'
-            current_loginwindow = FoundationPlist.readPlist(loginwindow_preferences)
+            try:
+                prefs_file = open(loginwindow_preferences, 'rb')
+            except:
+                logging.error(f"Can't open {loginwindow_preferences}. Exiting")
+                exit(1)
+            try:
+                current_loginwindow = plistlib.load(prefs_file)
+            except:
+                logging.error(f"Unable to read contents of {loginwindow_preferences}. Exiting")
+                exit(1)
+            prefs_file.close()
             lastuser = current_loginwindow['lastUser']
             console_user = current_loginwindow['lastUserName']
             if (mac_version >= '13') or (lastuser == 'loggedOut') or (lastuser == 'Restart'):
@@ -220,9 +216,9 @@ def main():
                     if os.listdir(logout_every_dir):
                         process_items(logout_every_dir)
                     else:
-                        logging.info('Skipping logout scripts, because user %s is on the ignored user list', console_user)
+                        logging.info(f'Skipping logout scripts, because user {console_user} is on the ignored user list')
             else:
-                logging.info('Skipping logout scripts, because login state is %s and should be loggedOut or Restart', lastuser)
+                logging.info(f'Skipping logout scripts, because login state is {lastuser} and should be loggedOut or Restart')
         else:
             logging.info('Skipping logout scripts, because this is a reboot after a logout')
 
@@ -231,7 +227,19 @@ def main():
         if not prefs.get('ignored_users'):
             prefs['ignored_users'] = []
         prefs['ignored_users'].extend(users_to_add)
-        FoundationPlist.writePlist(prefs, offset_preferences)
+        try:
+            prefs_file = open(offset_preferences, 'r+b')
+        except:
+            logging.error(f"Can't open {offset_preferences}. Exiting")
+            exit(1)
+        prefs_file.seek(0)
+        prefs_file.truncate()
+        try:
+            plistlib.dump(prefs, offset_preferences)
+        except:
+            logging.error(f"Can't write changes back to {offset_preferences}. Exiting")
+            exit(1)
+        prefs_file.close()
 
     if args.remove_ignored_user:
         users_to_remove = args.remove_ignored_user
@@ -239,10 +247,22 @@ def main():
             for user in users_to_remove:
                 if user in prefs['ignored_users']:
                     prefs['ignored_users'].remove(user)
-            FoundationPlist.writePlist(prefs, offset_preferences)
+            try:
+                prefs_file = open(offset_preferences, 'r+b')
+            except:
+                logging.error(f"Can't open {offset_preferences}. Exiting")
+                exit(1)
+            prefs_file.seek(0)
+            prefs_file.truncate()
+            try:
+                plistlib.dump(prefs, offset_preferences)
+            except:
+                logging.error(f"Can't write changes back to {offset_preferences}. Exiting")
+                exit(1)
+            prefs_file.close()
 
     if args.version:
-        print __version__
+        print(__version__)
 
 if __name__ == '__main__':
     main()
