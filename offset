@@ -25,10 +25,10 @@ __version__ = '2.0.0'
 
 import argparse
 import datetime
-import FoundationPlist
 import logging
 import os
 import platform
+import plistlib
 import shutil
 import subprocess
 import time
@@ -195,7 +195,17 @@ def main():
         os.makedirs(share_dir)
 
     if os.path.exists(offset_preferences):
-        prefs = FoundationPlist.readPlist(offset_preferences)
+        try:
+            prefs_file = open(offset_preferences, 'rb')
+        except:
+            logging.error(f"Can't open {offset_preferences}. Exiting")
+            exit(1)
+        try:
+            prefs = plistlib.load(prefs_file)
+        except:
+            logging.error(f"Unable to read contents of {offset_preferences}. Exiting")
+            exit(1)
+        prefs_file.close()
         if prefs.get('ignored_users'):
             ignored_users = prefs['ignored_users']
 
@@ -212,7 +222,17 @@ def main():
         # If the second line is shutdown and the third line is not shutdown or reboot and the second line's start time is the same as the third line's end time... or if the second line is not shutdown or reboot and its end time is the same as the start time... 
         if((lastheadlist[0][0] != "reboot") or (lastheadlist[0][0] == "reboot" and lastheadlist[1][0] == "shutdown" and lastheadlist[2][0] != "reboot" and lastheadlist[2][0] != "shutdown" and lastheadlist[1][5] == lastheadlist[2][7]) or (lastheadlist[0][0] == "reboot" and lastheadlist[1][0] != "reboot" and lastheadlist[1][0] != "shutdown" and lastheadlist[0][5] == lastheadlist[1][7])):
             # Logout is really login window. Check both the  username and the last user state is 'loggedOut' or 'Restart'
-            current_loginwindow = FoundationPlist.readPlist(loginwindow_preferences)
+            try:
+                prefs_file = open(loginwindow_preferences, 'rb')
+            except:
+                logging.error(f"Can't open {loginwindow_preferences}. Exiting")
+                exit(1)
+            try:
+                current_loginwindow = plistlib.load(prefs_file)
+            except:
+                logging.error(f"Unable to read contents of {loginwindow_preferences}. Exiting")
+                exit(1)
+            prefs_file.close()
             lastuser = current_loginwindow['lastUser']
             console_user = current_loginwindow['lastUserName']
             if (mac_version >= '13') or (lastuser == 'loggedOut') or (lastuser == 'Restart'):
@@ -231,7 +251,19 @@ def main():
         if not prefs.get('ignored_users'):
             prefs['ignored_users'] = []
         prefs['ignored_users'].extend(users_to_add)
-        FoundationPlist.writePlist(prefs, offset_preferences)
+        try:
+            prefs_file = open(offset_preferences, 'r+b')
+        except:
+            logging.error(f"Can't open {offset_preferences}. Exiting")
+            exit(1)
+        prefs_file.seek(0)
+        prefs_file.truncate()
+        try:
+            plistlib.dump(prefs, offset_preferences)
+        except:
+            logging.error(f"Can't write changes back to {offset_preferences}. Exiting")
+            exit(1)
+        prefs_file.close()
 
     if args.remove_ignored_user:
         users_to_remove = args.remove_ignored_user
@@ -239,7 +271,19 @@ def main():
             for user in users_to_remove:
                 if user in prefs['ignored_users']:
                     prefs['ignored_users'].remove(user)
-            FoundationPlist.writePlist(prefs, offset_preferences)
+            try:
+                prefs_file = open(offset_preferences, 'r+b')
+            except:
+                logging.error(f"Can't open {offset_preferences}. Exiting")
+                exit(1)
+            prefs_file.seek(0)
+            prefs_file.truncate()
+            try:
+                plistlib.dump(prefs, offset_preferences)
+            except:
+                logging.error(f"Can't write changes back to {offset_preferences}. Exiting")
+                exit(1)
+            prefs_file.close()
 
     if args.version:
         print __version__
