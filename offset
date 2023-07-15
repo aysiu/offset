@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/managed_python3
 
 '''
 Run scripts and install pkgs or profiles at logout.
