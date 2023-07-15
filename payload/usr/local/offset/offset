@@ -28,7 +28,6 @@ import logging
 import os
 import platform
 import plistlib
-import shutil
 import subprocess
 import time
 from stat import S_IXOTH, S_IWOTH
