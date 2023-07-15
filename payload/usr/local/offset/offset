@@ -31,7 +31,6 @@ import plistlib
 import subprocess
 import time
 from stat import S_IXOTH, S_IWOTH
-from SystemConfiguration import SCDynamicStoreCopyConsoleUser
 
 
 offset_dir = '/usr/local/offset'
