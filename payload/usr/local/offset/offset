@@ -1,4 +1,4 @@
-#!/usr/local/bin/managed_python3
+#!/usr/local/munki/munki-python
 
 '''
 Run scripts and install pkgs at logout.
