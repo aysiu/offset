@@ -1,7 +1,7 @@
 #!/usr/local/bin/managed_python3
 
 '''
-Run scripts and install pkgs or profiles at logout.
+Run scripts and install pkgs at logout.
 '''
 
 ##############################################################################
