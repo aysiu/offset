@@ -34,11 +34,8 @@ In High Sierra, the change from loggedIn to loggedOut in the com.apple.loginwind
 ### .pkg Method
 Go to the [the releases page](https://github.com/aysiu/offset/releases), where you'll be able to download a .pkg file and just run it. 
 
-### Manual Method
-Download the .zip and put the following files/folders in the following places
-* /usr/local/offset/**offset**
-* /usr/local/offset/**FoundationPlist**
-* /Library/LaunchAgents/**com.github.offset.logout.plist**
+### Create package yourself
+Use [munkipkg](https://github.com/munki/munki-pkg) to build (and maybe sign?) the package yourself.
 
 ## How to use Offset
 Put any scripts or packages in the **/usr/local/offset/logout-every** folder and make sure they have root:wheel ownership. The scripts should have 755 permissions. Packages should have 644 permissions.
