@@ -24,7 +24,6 @@ __author__ = 'aysiu after Joseph Chilcote'
 __version__ = '2.0.0'
 
 import argparse
-import datetime
 import logging
 import os
 import platform
